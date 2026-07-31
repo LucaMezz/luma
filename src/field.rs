@@ -8,6 +8,7 @@ use crate::identity::{One, Zero};
 pub trait Field:
     Sized
     + Copy
+    + PartialEq
     + Add<Output = Self>
     + Sub<Output = Self>
     + Mul<Output = Self>
@@ -21,6 +22,7 @@ pub trait Field:
 impl<
     T: Sized
         + Copy
+        + PartialEq
         + Add<Output = T>
         + Sub<Output = T>
         + Mul<Output = T>
