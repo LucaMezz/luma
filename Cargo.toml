@@ -1,0 +1,19 @@
+[package]
+name = "luma"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "A linear algebra library for graphics and general use"
+readme = "README.md"
+license = "MIT"
+keywords = ["linear-algebra", "math", "graphics", "vector", "matrix"]
+categories = ["mathematics", "graphics"]
+# repository = "https://github.com/<your-username>/luma"
+
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+
+[lints.clippy]
+all = "warn"
