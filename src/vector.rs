@@ -6,7 +6,7 @@
 //! vector can be multiplied against a matrix.
 
 use core::array;
-use core::ops::{Add, Index, Mul, Sub};
+use core::ops::{Add, Index, Mul, Neg, Sub};
 
 use crate::array::zip_map;
 use crate::field::Field;
@@ -255,6 +255,18 @@ where
     }
 }
 
+/// Componentwise vector negation, e.g. `-vector`. Equivalent to `negate`.
+impl<F, const N: usize> Neg for Vector<F, N>
+where
+    F: Field,
+{
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        self.negate()
+    }
+}
+
 /// Scalar multiplication: multiplies every component by `rhs`
 impl<F, const N: usize> Mul<F> for Vector<F, N>
 where
@@ -350,6 +362,13 @@ mod test {
         let b = Vector::new([4, 5, 6]);
 
         assert_eq!(a - b, Vector::new([-3, -3, -3]));
+    }
+
+    #[test]
+    fn test_neg() {
+        let a = Vector::new([1, -2, 3]);
+
+        assert_eq!(-a, Vector::new([-1, 2, -3]));
     }
 
     #[test]
