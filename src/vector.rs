@@ -18,6 +18,15 @@ where
     data: [F; N],
 }
 
+/// A 2-component vector
+pub type Vec2<F> = Vector<F, 2>;
+
+/// A 3-component vector
+pub type Vec3<F> = Vector<F, 3>;
+
+/// A 4-component vector
+pub type Vec4<F> = Vector<F, 4>;
+
 impl<F, const N: usize> Vector<F, N>
 where
     F: Field,
@@ -259,6 +268,16 @@ where
     }
 }
 
+/// Converts a vector into its underlying `[F; N]` array of components.
+impl<F, const N: usize> From<Vector<F, N>> for [F; N]
+where
+    F: Field,
+{
+    fn from(v: Vector<F, N>) -> Self {
+        v.data
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::matrix::Matrix;
@@ -316,6 +335,14 @@ mod test {
     #[test]
     fn test_zero() {
         assert_eq!(Vector::<i32, 3>::zero(), Vector::new([0, 0, 0]));
+    }
+
+    #[test]
+    fn test_into_array() {
+        let v = Vector::new([1, 2, 3]);
+        let a: [i32; 3] = v.into();
+
+        assert_eq!(a, [1, 2, 3]);
     }
 
     #[test]

@@ -22,6 +22,78 @@ impl Sqrt for f64 {
     }
 }
 
+/// A quantity that has a sine
+pub trait Sin {
+    /// Returns the sine, taking `self` as radians
+    fn sin(self) -> Self;
+}
+
+impl Sin for f32 {
+    fn sin(self) -> Self {
+        libm::sinf(self)
+    }
+}
+
+impl Sin for f64 {
+    fn sin(self) -> Self {
+        libm::sin(self)
+    }
+}
+
+/// A quantity that has a cosine
+pub trait Cos {
+    /// Returns the cosine, taking `self` as radians
+    fn cos(self) -> Self;
+}
+
+impl Cos for f32 {
+    fn cos(self) -> Self {
+        libm::cosf(self)
+    }
+}
+
+impl Cos for f64 {
+    fn cos(self) -> Self {
+        libm::cos(self)
+    }
+}
+
+/// A quantity that has a tangent
+pub trait Tan {
+    /// Returns the tangent, taking `self` as radians
+    fn tan(self) -> Self;
+}
+
+impl Tan for f32 {
+    fn tan(self) -> Self {
+        libm::tanf(self)
+    }
+}
+
+impl Tan for f64 {
+    fn tan(self) -> Self {
+        libm::tan(self)
+    }
+}
+
+/// A quantity that has an inverse sine (arcsine)
+pub trait Asin {
+    /// Returns the arcsine, in radians
+    fn asin(self) -> Self;
+}
+
+impl Asin for f32 {
+    fn asin(self) -> Self {
+        libm::asinf(self)
+    }
+}
+
+impl Asin for f64 {
+    fn asin(self) -> Self {
+        libm::asin(self)
+    }
+}
+
 /// A quantity that has an inverse cosine (arccosine)
 pub trait Acos {
     /// Returns the arccosine, in radians
@@ -37,6 +109,24 @@ impl Acos for f32 {
 impl Acos for f64 {
     fn acos(self) -> Self {
         libm::acos(self)
+    }
+}
+
+/// A quantity that has an inverse tangent (arctangent)
+pub trait Atan {
+    /// Returns the arctangent, in radians
+    fn atan(self) -> Self;
+}
+
+impl Atan for f32 {
+    fn atan(self) -> Self {
+        libm::atanf(self)
+    }
+}
+
+impl Atan for f64 {
+    fn atan(self) -> Self {
+        libm::atan(self)
     }
 }
 

@@ -1,10 +1,12 @@
 //! Defines a Matrix
 
 use core::array;
-use core::ops::{Add, Index, Mul, Sub};
+use core::ops::{Add, Index, IndexMut, Mul, Sub};
 
 use crate::array::zip_map;
 use crate::field::Field;
+use crate::real::{Cos, Sin};
+use crate::vector::Vector;
 
 /// An NxM matrix (N rows, M columns). Size must be known at compile time.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -14,6 +16,15 @@ where
 {
     data: [[F; M]; N],
 }
+
+/// A 2x2 matrix
+pub type Mat2<F> = Matrix<F, 2, 2>;
+
+/// A 3x3 matrix
+pub type Mat3<F> = Matrix<F, 3, 3>;
+
+/// A 4x4 matrix
+pub type Mat4<F> = Matrix<F, 4, 4>;
 
 impl<F, const N: usize, const M: usize> Matrix<F, N, M>
 where
@@ -28,6 +39,20 @@ where
     pub fn diagonal(data: [F; N]) -> Self {
         Self {
             data: array::from_fn(|i| array::from_fn(|j| if i == j { data[i] } else { F::zero() })),
+        }
+    }
+
+    /// Constructs a matrix from an array of row vectors
+    pub fn from_rows(rows: [Vector<F, M>; N]) -> Self {
+        Self {
+            data: rows.map(|row| row.into()),
+        }
+    }
+
+    /// Constructs a matrix from an array of column vectors
+    pub fn from_columns(columns: [Vector<F, N>; M]) -> Self {
+        Self {
+            data: array::from_fn(|i| array::from_fn(|j| columns[j][i])),
         }
     }
 
@@ -48,6 +73,16 @@ where
     /// Returns the transpose of the matrix
     pub fn transpose(&self) -> Matrix<F, M, N> {
         Matrix::new(array::from_fn(|i| array::from_fn(|j| self.data[j][i])))
+    }
+
+    /// Returns the rows of the matrix as an array of vectors
+    pub fn rows(&self) -> [Vector<F, M>; N] {
+        array::from_fn(|i| Vector::new(self.data[i]))
+    }
+
+    /// Returns the columns of the matrix as an array of vectors
+    pub fn columns(&self) -> [Vector<F, N>; M] {
+        array::from_fn(|j| Vector::new(array::from_fn(|i| self.data[i][j])))
     }
 
     /// Checks if the matrix is square
@@ -87,6 +122,117 @@ where
             .map(|x| self.data[x][x])
             .fold(F::zero(), |acc, x| acc + x)
     }
+
+    /// Constructs the matrix for a scale by `s` along each axis
+    pub fn scale(s: Vector<F, N>) -> Self {
+        Self::diagonal(s.into())
+    }
+}
+
+impl<F> Matrix<F, 2, 2>
+where
+    F: Field + Sin + Cos,
+{
+    /// Constructs the matrix for a rotation by an angle in radians
+    ///
+    /// Unlike the 3x3/4x4 rotations, there's only one plane to rotate in, so
+    /// this doesn't take an `Axis`.
+    pub fn rotation(angle: F) -> Self {
+        let s = angle.sin();
+        let c = angle.cos();
+        Matrix::new([[c, -s], [s, c]])
+    }
+}
+
+impl<F> Matrix<F, 4, 4>
+where
+    F: Field,
+{
+    /// Constructs the matrix for a translation in three dimensions
+    pub fn translation(tx: F, ty: F, tz: F) -> Self {
+        let mut t = Matrix::id();
+        t[0][3] = tx;
+        t[1][3] = ty;
+        t[2][3] = tz;
+        t
+    }
+}
+
+impl<F> Matrix<F, 4, 4>
+where
+    F: Field + Sin + Cos,
+{
+    /// Constructs the matrix for a rotation around an axis, by an angle in radians
+    pub fn rotation(axis: Axis, angle: F) -> Self {
+        let s = angle.sin();
+        let c = angle.cos();
+        let mut r = Matrix::id();
+        match axis {
+            Axis::X => {
+                r[1][1] = c;
+                r[1][2] = -s;
+                r[2][1] = s;
+                r[2][2] = c;
+            }
+            Axis::Y => {
+                r[0][0] = c;
+                r[0][2] = s;
+                r[2][0] = -s;
+                r[2][2] = c;
+            }
+            Axis::Z => {
+                r[0][0] = c;
+                r[0][1] = -s;
+                r[1][0] = s;
+                r[1][1] = c;
+            }
+        }
+        r
+    }
+}
+
+impl<F> Matrix<F, 3, 3>
+where
+    F: Field + Sin + Cos,
+{
+    /// Constructs the matrix for a rotation around an axis, by an angle in radians
+    pub fn rotation(axis: Axis, angle: F) -> Self {
+        let s = angle.sin();
+        let c = angle.cos();
+        let mut r = Matrix::id();
+        match axis {
+            Axis::X => {
+                r[1][1] = c;
+                r[1][2] = -s;
+                r[2][1] = s;
+                r[2][2] = c;
+            }
+            Axis::Y => {
+                r[0][0] = c;
+                r[0][2] = s;
+                r[2][0] = -s;
+                r[2][2] = c;
+            }
+            Axis::Z => {
+                r[0][0] = c;
+                r[0][1] = -s;
+                r[1][0] = s;
+                r[1][1] = c;
+            }
+        }
+        r
+    }
+}
+
+/// A coordinate axis in three dimensions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Axis {
+    /// The x-axis
+    X,
+    /// The y-axis
+    Y,
+    /// The z-axis
+    Z,
 }
 
 impl<F, const N: usize, const M: usize> Index<usize> for Matrix<F, N, M>
@@ -97,6 +243,15 @@ where
 
     fn index(&self, index: usize) -> &[F; M] {
         &self.data[index]
+    }
+}
+
+impl<F, const N: usize, const M: usize> IndexMut<usize> for Matrix<F, N, M>
+where
+    F: Field,
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
     }
 }
 
@@ -160,7 +315,10 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::matrix::Matrix;
+    use core::f64::consts::FRAC_PI_2;
+
+    use crate::matrix::{Axis, Matrix};
+    use crate::vector::Vector;
 
     #[test]
     fn test_add() {
@@ -170,6 +328,30 @@ mod test {
         let c = a + b;
 
         assert_eq!(c, Matrix::new([[6, 5], [10, 11]]));
+    }
+
+    #[test]
+    fn test_rows_columns() {
+        // Non-square on purpose, same reasoning as test_mul_matrix: it
+        // catches a rows/columns mixup that a square matrix would hide.
+        let m = Matrix::new([[1, 2, 3], [4, 5, 6]]);
+
+        assert_eq!(m.rows(), [Vector::new([1, 2, 3]), Vector::new([4, 5, 6])]);
+        assert_eq!(
+            m.columns(),
+            [Vector::new([1, 4]), Vector::new([2, 5]), Vector::new([3, 6])]
+        );
+    }
+
+    #[test]
+    fn test_from_rows_columns() {
+        let rows = [Vector::new([1, 2, 3]), Vector::new([4, 5, 6])];
+        let columns = [Vector::new([1, 4]), Vector::new([2, 5]), Vector::new([3, 6])];
+
+        let expected = Matrix::new([[1, 2, 3], [4, 5, 6]]);
+
+        assert_eq!(Matrix::from_rows(rows), expected);
+        assert_eq!(Matrix::from_columns(columns), expected);
     }
 
     #[test]
@@ -229,5 +411,82 @@ mod test {
         let c = a * b;
 
         assert_eq!(c, Matrix::new([[1, 2, 3, 6], [4, 5, 6, 15]]));
+    }
+
+    #[test]
+    fn test_translation() {
+        let t = Matrix::translation(34, 17, 82);
+
+        assert_eq!(
+            t,
+            Matrix::new([[1, 0, 0, 34], [0, 1, 0, 17], [0, 0, 1, 82], [0, 0, 0, 1],])
+        )
+    }
+
+    #[test]
+    fn test_rotation_2d() {
+        // sin(0)/cos(0) are exact in IEEE 754, so this can use assert_eq!
+        // rather than a tolerance.
+        assert_eq!(Matrix::<f64, 2, 2>::rotation(0.0), Matrix::id());
+
+        // A 90-degree rotation should send X to Y.
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
+        let r = Matrix::<f64, 2, 2>::rotation(FRAC_PI_2);
+        let m = r * Matrix::from(Vector::new([1.0, 0.0]));
+
+        assert!(close(m[0][0], 0.0));
+        assert!(close(m[1][0], 1.0));
+    }
+
+    #[test]
+    fn test_rotation_zero_is_identity() {
+        // sin(0)/cos(0) are exact in IEEE 754, so this can use assert_eq!
+        // rather than a tolerance.
+        assert_eq!(Matrix::<f64, 3, 3>::rotation(Axis::X, 0.0), Matrix::id());
+        assert_eq!(Matrix::<f64, 3, 3>::rotation(Axis::Y, 0.0), Matrix::id());
+        assert_eq!(Matrix::<f64, 3, 3>::rotation(Axis::Z, 0.0), Matrix::id());
+    }
+
+    #[test]
+    fn test_rotation_spot_check() {
+        // 90-degree rotations have exact expected results, which pins down
+        // both the axis and the sign/direction of the rotation - properties
+        // that an orthogonality check alone can't catch.
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
+        let close_vec = |a: Vector<f64, 3>, b: Vector<f64, 3>| {
+            close(a[0], b[0]) && close(a[1], b[1]) && close(a[2], b[2])
+        };
+        let rotate = |axis: Axis, v: Vector<f64, 3>| {
+            let r = Matrix::<f64, 3, 3>::rotation(axis, FRAC_PI_2);
+            let m = r * Matrix::from(v);
+            Vector::new([m[0][0], m[1][0], m[2][0]])
+        };
+
+        let x = Vector::new([1.0, 0.0, 0.0]);
+        let y = Vector::new([0.0, 1.0, 0.0]);
+        let z = Vector::new([0.0, 0.0, 1.0]);
+
+        assert!(close_vec(rotate(Axis::Z, x), y));
+        assert!(close_vec(rotate(Axis::X, y), z));
+        assert!(close_vec(rotate(Axis::Y, z), x));
+    }
+
+    #[test]
+    fn test_rotation_is_orthogonal() {
+        // Property check: a rotation matrix's transpose should be its
+        // inverse for any angle, not just the "nice" ones above.
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
+
+        for axis in [Axis::X, Axis::Y, Axis::Z] {
+            let r = Matrix::<f64, 3, 3>::rotation(axis, 0.73);
+            let product = r * r.transpose();
+
+            for i in 0..3 {
+                for j in 0..3 {
+                    let expected = if i == j { 1.0 } else { 0.0 };
+                    assert!(close(product[i][j], expected));
+                }
+            }
+        }
     }
 }
