@@ -49,6 +49,13 @@ where
         }
     }
 
+    /// Returns the vector with every component equal to one
+    pub fn one() -> Self {
+        Self {
+            data: [F::one(); N],
+        }
+    }
+
     /// Returns this vector as a 1xN row matrix, so it can be multiplied
     /// against a matrix on the left (`vector.to_row_matrix() * matrix`).
     pub fn to_row_matrix(&self) -> Matrix<F, 1, N> {
@@ -381,6 +388,11 @@ mod test {
     #[test]
     fn test_zero() {
         assert_eq!(Vector::<i32, 3>::zero(), Vector::new([0, 0, 0]));
+    }
+
+    #[test]
+    fn test_one() {
+        assert_eq!(Vector::<i32, 3>::one(), Vector::new([1, 1, 1]));
     }
 
     #[test]
