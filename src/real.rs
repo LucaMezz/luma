@@ -1,8 +1,10 @@
 //! Defines operations only meaningful for real (floating-point) numbers.
 //!
-//! Not every `Field` has a square root (or, later, sine/cosine) - these
-//! aren't field axioms, only true for reals - so they live in their own
-//! trait(s) here rather than being pulled into `Field` itself.
+//! Not every `Field` has a square root or a sine/cosine - these aren't field
+//! axioms, only true for reals - so they live in their own traits here
+//! rather than being pulled into `Field` itself. Each trait is implemented
+//! for `f32` and `f64` in terms of `libm`, so this crate stays `no_std`
+//! without depending on the host's libc math functions.
 
 /// A quantity that has a square root
 pub trait Sqrt {

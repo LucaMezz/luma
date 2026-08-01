@@ -1,10 +1,18 @@
 //! Defines a Field
+//!
+//! `Matrix` and `Vector` are generic over `Field` rather than a specific
+//! number type, so the same code works for `i32` coordinates and `f64`
+//! coordinates alike. `Field` bundles exactly the operations linear algebra
+//! needs (the four arithmetic operations, negation, and the two identities)
+//! and nothing more - it deliberately doesn't require an ordering or a
+//! square root, since not every use of this crate needs those.
 
 use core::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::identity::{One, Zero};
 
-/// A field
+/// A field: a type supporting addition, subtraction, multiplication and
+/// division, with additive (`Zero`) and multiplicative (`One`) identities.
 pub trait Field:
     Sized
     + Copy
@@ -19,6 +27,9 @@ pub trait Field:
 {
 }
 
+/// Blanket impl: any type with the right operations and identities is a
+/// `Field` automatically, so implementers only need to provide `Zero`/`One`
+/// (see `impl_zero_one!` below) rather than `Field` itself.
 impl<
     T: Sized
         + Copy
@@ -34,6 +45,8 @@ impl<
 {
 }
 
+// Implements `Zero`/`One` for a list of built-in numeric types, so they
+// each get `Field` for free via the blanket impl above.
 macro_rules! impl_zero_one {
     ($($t:ty => $zero:expr, $one:expr);* $(;)?) => {
         $(

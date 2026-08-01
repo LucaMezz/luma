@@ -1,4 +1,9 @@
 //! Defines a Matrix
+//!
+//! Storage is row-major (`data[row][column]`) and dimensions are compile-time
+//! `const` generics, so the type system catches mismatched-dimension errors
+//! (e.g. multiplying a 3x2 by a 4x2) instead of them surfacing as runtime
+//! panics.
 
 use core::array;
 use core::ops::{Add, Index, IndexMut, Mul, Sub};
@@ -8,7 +13,8 @@ use crate::field::Field;
 use crate::real::{Cos, Sin};
 use crate::vector::Vector;
 
-/// An NxM matrix (N rows, M columns). Size must be known at compile time.
+/// An NxM matrix (N rows, M columns) over a `Field` `F`. Size must be known
+/// at compile time.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Matrix<F, const N: usize, const M: usize>
 where
@@ -30,26 +36,29 @@ impl<F, const N: usize, const M: usize> Matrix<F, N, M>
 where
     F: Field,
 {
-    /// Create a new matrix
+    /// Create a new matrix from its rows, e.g. `Matrix::new([[1, 2], [3,
+    /// 4]])` is the matrix with first row `[1, 2]` and second row `[3, 4]`
     pub fn new(data: [[F; M]; N]) -> Self {
         Self { data }
     }
 
-    /// Create a new diagonal matrix from diagonal entries
+    /// Create a new diagonal matrix from diagonal entries, with every
+    /// off-diagonal entry set to zero
     pub fn diagonal(data: [F; N]) -> Self {
         Self {
             data: array::from_fn(|i| array::from_fn(|j| if i == j { data[i] } else { F::zero() })),
         }
     }
 
-    /// Constructs a matrix from an array of row vectors
+    /// Constructs a matrix from an array of row vectors. Inverse of `rows`.
     pub fn from_rows(rows: [Vector<F, M>; N]) -> Self {
         Self {
             data: rows.map(|row| row.into()),
         }
     }
 
-    /// Constructs a matrix from an array of column vectors
+    /// Constructs a matrix from an array of column vectors. Inverse of
+    /// `columns`.
     pub fn from_columns(columns: [Vector<F, N>; M]) -> Self {
         Self {
             data: array::from_fn(|i| array::from_fn(|j| columns[j][i])),
@@ -75,12 +84,14 @@ where
         Matrix::new(array::from_fn(|i| array::from_fn(|j| self.data[j][i])))
     }
 
-    /// Returns the rows of the matrix as an array of vectors
+    /// Returns the rows of the matrix as an array of vectors. Inverse of
+    /// `from_rows`.
     pub fn rows(&self) -> [Vector<F, M>; N] {
         array::from_fn(|i| Vector::new(self.data[i]))
     }
 
-    /// Returns the columns of the matrix as an array of vectors
+    /// Returns the columns of the matrix as an array of vectors. Inverse of
+    /// `from_columns`.
     pub fn columns(&self) -> [Vector<F, N>; M] {
         array::from_fn(|j| Vector::new(array::from_fn(|i| self.data[i][j])))
     }
@@ -123,7 +134,8 @@ where
             .fold(F::zero(), |acc, x| acc + x)
     }
 
-    /// Constructs the matrix for a scale by `s` along each axis
+    /// Constructs the matrix for a scale by `s` along each axis: a diagonal
+    /// matrix with `s`'s components on the diagonal
     pub fn scale(s: Vector<F, N>) -> Self {
         Self::diagonal(s.into())
     }
@@ -133,7 +145,8 @@ impl<F> Matrix<F, 2, 2>
 where
     F: Field + Sin + Cos,
 {
-    /// Constructs the matrix for a rotation by an angle in radians
+    /// Constructs the matrix for a rotation by an angle in radians,
+    /// counterclockwise (from the x-axis towards the y-axis)
     ///
     /// Unlike the 3x3/4x4 rotations, there's only one plane to rotate in, so
     /// this doesn't take an `Axis`.
@@ -149,6 +162,10 @@ where
     F: Field,
 {
     /// Constructs the matrix for a translation in three dimensions
+    ///
+    /// Assumes points are represented as column vectors and transformed by
+    /// multiplying this matrix on the left (`translation * point`), which is
+    /// why the offsets end up in the last column rather than the last row.
     pub fn translation(tx: F, ty: F, tz: F) -> Self {
         let mut t = Matrix::id();
         t[0][3] = tx;
@@ -162,7 +179,12 @@ impl<F> Matrix<F, 4, 4>
 where
     F: Field + Sin + Cos,
 {
-    /// Constructs the matrix for a rotation around an axis, by an angle in radians
+    /// Constructs the matrix for a rotation around an axis, by an angle in
+    /// radians
+    ///
+    /// Follows the right-hand rule: looking from the positive end of `axis`
+    /// towards the origin, a positive angle rotates counterclockwise (e.g.
+    /// rotating around `Axis::Z` sends the x-axis towards the y-axis).
     pub fn rotation(axis: Axis, angle: F) -> Self {
         let s = angle.sin();
         let c = angle.cos();
@@ -195,7 +217,12 @@ impl<F> Matrix<F, 3, 3>
 where
     F: Field + Sin + Cos,
 {
-    /// Constructs the matrix for a rotation around an axis, by an angle in radians
+    /// Constructs the matrix for a rotation around an axis, by an angle in
+    /// radians
+    ///
+    /// Follows the right-hand rule: looking from the positive end of `axis`
+    /// towards the origin, a positive angle rotates counterclockwise (e.g.
+    /// rotating around `Axis::Z` sends the x-axis towards the y-axis).
     pub fn rotation(axis: Axis, angle: F) -> Self {
         let s = angle.sin();
         let c = angle.cos();
@@ -224,7 +251,8 @@ where
     }
 }
 
-/// A coordinate axis in three dimensions
+/// A coordinate axis in three dimensions, used to pick which axis a 3x3 or
+/// 4x4 rotation happens around
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Axis {
     /// The x-axis
@@ -235,6 +263,8 @@ pub enum Axis {
     Z,
 }
 
+/// Indexes into a row, so `matrix[i][j]` reads the entry at row `i`, column
+/// `j`
 impl<F, const N: usize, const M: usize> Index<usize> for Matrix<F, N, M>
 where
     F: Field,
@@ -246,6 +276,8 @@ where
     }
 }
 
+/// Mutably indexes into a row, so `matrix[i][j] = x` sets the entry at row
+/// `i`, column `j`
 impl<F, const N: usize, const M: usize> IndexMut<usize> for Matrix<F, N, M>
 where
     F: Field,
@@ -255,6 +287,7 @@ where
     }
 }
 
+/// Elementwise matrix addition
 impl<F, const N: usize, const M: usize> Add for Matrix<F, N, M>
 where
     F: Field,
@@ -268,6 +301,7 @@ where
     }
 }
 
+/// Elementwise matrix subtraction
 impl<F, const N: usize, const M: usize> Sub for Matrix<F, N, M>
 where
     F: Field,
@@ -281,6 +315,7 @@ where
     }
 }
 
+/// Scalar multiplication: multiplies every entry by `rhs`
 impl<F, const N: usize, const M: usize> Mul<F> for Matrix<F, N, M>
 where
     F: Field,
@@ -294,6 +329,8 @@ where
     }
 }
 
+/// Matrix multiplication: an NxM matrix times an MxP matrix gives an NxP
+/// matrix - the shared dimension `M` is enforced at compile time
 impl<F, const N: usize, const M: usize, const P: usize> Mul<Matrix<F, M, P>> for Matrix<F, N, M>
 where
     F: Field,

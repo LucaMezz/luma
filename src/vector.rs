@@ -1,4 +1,9 @@
 //! Defines a Vector
+//!
+//! A `Vector<F, N>` is a flat array of `N` components, distinct from a
+//! `Matrix<F, N, 1>`/`Matrix<F, 1, N>` (column/row matrix) even though they
+//! hold the same data - the `From` impls below convert between the two so a
+//! vector can be multiplied against a matrix.
 
 use core::array;
 use core::ops::{Add, Index, Mul, Sub};
@@ -9,7 +14,8 @@ use crate::matrix::Matrix;
 use crate::order::MinMax;
 use crate::real::{Acos, Round, Sqrt};
 
-/// A vector with `N` components.
+/// A vector with `N` components over a `Field` `F`, used for coordinates,
+/// directions, and offsets.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vector<F, const N: usize>
 where
@@ -89,7 +95,9 @@ where
         (*self - other).length()
     }
 
-    /// Linearly interpolates between two vectors
+    /// Linearly interpolates between two vectors: `t = 0` gives `self`,
+    /// `t = 1` gives `other`. `t` outside `[0, 1]` extrapolates rather than
+    /// being clamped.
     pub fn lerp(&self, other: Self, t: F) -> Self {
         *self + (other - *self) * t
     }
@@ -170,7 +178,10 @@ impl<F> Vector<F, 3>
 where
     F: Field,
 {
-    /// Returns the cross product of two 3D vectors
+    /// Returns the cross product of two 3D vectors: a vector perpendicular
+    /// to both, following the right-hand rule (`x.cross(&y) == z` for the
+    /// standard basis vectors), matching the rotation convention used by
+    /// `Matrix::rotation`
     pub fn cross(&self, rhs: &Self) -> Self {
         Self::new([
             self[1] * rhs[2] - self[2] * rhs[1],
@@ -180,6 +191,7 @@ where
     }
 }
 
+/// Indexes into the vector's components, e.g. `v[0]` for the first
 impl<F, const N: usize> Index<usize> for Vector<F, N>
 where
     F: Field,
@@ -191,6 +203,7 @@ where
     }
 }
 
+/// Elementwise vector addition
 impl<F, const N: usize> Add for Vector<F, N>
 where
     F: Field,
@@ -204,6 +217,7 @@ where
     }
 }
 
+/// Elementwise vector subtraction
 impl<F, const N: usize> Sub for Vector<F, N>
 where
     F: Field,
@@ -217,6 +231,7 @@ where
     }
 }
 
+/// Scalar multiplication: multiplies every component by `rhs`
 impl<F, const N: usize> Mul<F> for Vector<F, N>
 where
     F: Field,
