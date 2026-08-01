@@ -317,7 +317,7 @@ where
 mod test {
     use core::f64::consts::FRAC_PI_2;
 
-    use crate::matrix::{Axis, Matrix};
+    use crate::matrix::{Axis, Mat2, Matrix};
     use crate::vector::Vector;
 
     #[test]
@@ -339,14 +339,22 @@ mod test {
         assert_eq!(m.rows(), [Vector::new([1, 2, 3]), Vector::new([4, 5, 6])]);
         assert_eq!(
             m.columns(),
-            [Vector::new([1, 4]), Vector::new([2, 5]), Vector::new([3, 6])]
+            [
+                Vector::new([1, 4]),
+                Vector::new([2, 5]),
+                Vector::new([3, 6])
+            ]
         );
     }
 
     #[test]
     fn test_from_rows_columns() {
         let rows = [Vector::new([1, 2, 3]), Vector::new([4, 5, 6])];
-        let columns = [Vector::new([1, 4]), Vector::new([2, 5]), Vector::new([3, 6])];
+        let columns = [
+            Vector::new([1, 4]),
+            Vector::new([2, 5]),
+            Vector::new([3, 6]),
+        ];
 
         let expected = Matrix::new([[1, 2, 3], [4, 5, 6]]);
 
@@ -431,7 +439,7 @@ mod test {
 
         // A 90-degree rotation should send X to Y.
         let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
-        let r = Matrix::<f64, 2, 2>::rotation(FRAC_PI_2);
+        let r = Mat2::<f64>::rotation(FRAC_PI_2);
         let m = r * Matrix::from(Vector::new([1.0, 0.0]));
 
         assert!(close(m[0][0], 0.0));
