@@ -215,6 +215,21 @@ where
     }
 }
 
+/// Converts a 3D vector into a 4D homogeneous vector with `w = 1`, e.g. so a
+/// position can be multiplied against a 4x4 matrix. `w = 1` marks the vector
+/// as a point rather than a direction, so `Matrix::translation`'s offset
+/// carries through to it - a pure direction would instead use `w = 0` so
+/// translation leaves it unaffected, but there's no need for that case here
+/// yet.
+impl<F> From<Vector<F, 3>> for Vector<F, 4>
+where
+    F: Field,
+{
+    fn from(v: Vector<F, 3>) -> Self {
+        Self::new([v[0], v[1], v[2], F::one()])
+    }
+}
+
 /// Indexes into the vector's components, e.g. `v[0]` for the first
 impl<F, const N: usize> Index<usize> for Vector<F, N>
 where
@@ -402,6 +417,14 @@ mod test {
         let y = Vector::new([0, 1, 0]);
 
         assert_eq!(x.cross(&y), Vector::new([0, 0, 1]));
+    }
+
+    #[test]
+    fn test_from_vec3_for_vec4() {
+        let v = Vector::new([1, 2, 3]);
+        let h: Vector<i32, 4> = v.into();
+
+        assert_eq!(h, Vector::new([1, 2, 3, 1]));
     }
 
     #[test]
