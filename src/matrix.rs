@@ -8,6 +8,7 @@
 use core::array;
 use core::ops::{Add, Index, IndexMut, Mul, Sub};
 
+use crate::Vec3;
 use crate::array::zip_map;
 use crate::field::Field;
 use crate::real::{Approx, Cos, Sin};
@@ -195,11 +196,11 @@ where
     /// Assumes points are represented as column vectors and transformed by
     /// multiplying this matrix on the left (`translation * point`), which is
     /// why the offsets end up in the last column rather than the last row.
-    pub fn translation(tx: F, ty: F, tz: F) -> Self {
+    pub fn translation(offset: Vec3<F>) -> Self {
         let mut t = Matrix::id();
-        t[0][3] = tx;
-        t[1][3] = ty;
-        t[2][3] = tz;
+        t[0][3] = offset[0];
+        t[1][3] = offset[1];
+        t[2][3] = offset[2];
         t
     }
 }
@@ -489,7 +490,7 @@ mod test {
 
     #[test]
     fn test_translation() {
-        let t = Matrix::translation(34, 17, 82);
+        let t = Matrix::translation(Vector::new([34, 17, 82]));
 
         assert_eq!(
             t,
