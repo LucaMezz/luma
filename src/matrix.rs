@@ -158,6 +158,18 @@ where
     }
 }
 
+impl<F, const N: usize> Matrix<F, 1, N>
+where
+    F: Field,
+{
+    /// Converts a 1xN row matrix into a vector. The inverse of
+    /// `Vector::to_row_matrix`; see `From<Vector<F, N>> for Matrix<F, N, 1>`
+    /// in vector.rs for why this is a plain method rather than a `From` impl.
+    pub fn to_vector(&self) -> Vector<F, N> {
+        Vector::new(self.data[0])
+    }
+}
+
 impl<F> Matrix<F, 2, 2>
 where
     F: Field + Sin + Cos,

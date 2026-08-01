@@ -289,7 +289,7 @@ impl_scalar_mul!(i8, i16, i32, i64, i128, isize, f32, f64);
 /// There's deliberately no equivalent `From<Vector<F, N>> for Matrix<F, 1,
 /// N>` (row) impl alongside this one: for `N = 1` both would apply to the
 /// same `Matrix<F, 1, 1>`, which is exactly the coherence conflict a
-/// `Mul`-for-dot-product impl hit earlier. `to_row_matrix` below covers that
+/// `Mul`-for-dot-product impl hit earlier. `to_row_matrix` above covers that
 /// direction as a plain method instead, sidestepping the conflict entirely.
 impl<F, const N: usize> From<Vector<F, N>> for Matrix<F, N, 1>
 where
@@ -297,6 +297,19 @@ where
 {
     fn from(v: Vector<F, N>) -> Self {
         Matrix::new(v.data.map(|c| [c]))
+    }
+}
+
+/// Converts an Nx1 column matrix back into a vector. The inverse of
+/// `From<Vector<F, N>> for Matrix<F, N, 1>` above; see that impl for why
+/// there's no equivalent for row matrices (`Matrix::to_vector` covers that
+/// direction instead).
+impl<F, const N: usize> From<Matrix<F, N, 1>> for Vector<F, N>
+where
+    F: Field,
+{
+    fn from(m: Matrix<F, N, 1>) -> Self {
+        Vector::new(m.rows().map(|row| row[0]))
     }
 }
 
@@ -391,6 +404,21 @@ mod test {
         let v = Vector::new([1, 2, 3]);
 
         assert_eq!(v.to_row_matrix(), Matrix::new([[1, 2, 3]]));
+    }
+
+    #[test]
+    fn test_from_column_matrix() {
+        let m = Matrix::new([[1], [2], [3]]);
+        let v: Vector<i32, 3> = m.into();
+
+        assert_eq!(v, Vector::new([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_matrix_to_vector() {
+        let m = Matrix::new([[1, 2, 3]]);
+
+        assert_eq!(m.to_vector(), Vector::new([1, 2, 3]));
     }
 
     #[test]
