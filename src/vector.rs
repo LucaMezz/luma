@@ -230,6 +230,22 @@ where
     }
 }
 
+impl<F> Vector<F, 4>
+where
+    F: Field,
+{
+    /// Converts a 4D homogeneous vector back to 3D by perspective dividing:
+    /// dividing `x`, `y`, and `z` by `w`. Deliberately not a `From` impl -
+    /// `w` is only guaranteed to be `1` (making this equivalent to just
+    /// dropping it) right after `Vector<F, 3>::into`; after a perspective
+    /// projection matrix `w` generally isn't `1` anymore, and a `From`
+    /// impl's unconditional truncation would silently produce the wrong
+    /// point in that case rather than the actual division needed.
+    pub fn perspective_divide(&self) -> Vector<F, 3> {
+        Vector::new([self[0] / self[3], self[1] / self[3], self[2] / self[3]])
+    }
+}
+
 /// Indexes into the vector's components, e.g. `v[0]` for the first
 impl<F, const N: usize> Index<usize> for Vector<F, N>
 where
@@ -425,6 +441,15 @@ mod test {
         let h: Vector<i32, 4> = v.into();
 
         assert_eq!(h, Vector::new([1, 2, 3, 1]));
+    }
+
+    #[test]
+    fn test_perspective_divide() {
+        let affine = Vector::new([1.0, 2.0, 3.0, 1.0]);
+        assert_eq!(affine.perspective_divide(), Vector::new([1.0, 2.0, 3.0]));
+
+        let projected = Vector::new([2.0, 4.0, 6.0, 2.0]);
+        assert_eq!(projected.perspective_divide(), Vector::new([1.0, 2.0, 3.0]));
     }
 
     #[test]
