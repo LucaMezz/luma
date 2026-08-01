@@ -171,3 +171,52 @@ impl Round for f64 {
         libm::round(self)
     }
 }
+
+/// A quantity that can be compared for approximate equality, to work around
+/// rounding error that makes exact `PartialEq` unreliable after arithmetic
+/// (e.g. `0.1 + 0.2 != 0.3`).
+///
+/// `epsilon` is an absolute tolerance, so it's a poor fit for comparing
+/// values whose magnitude is very different from the epsilon itself (a
+/// `1e-10` tolerance is too tight for numbers around `1e15`, and too loose
+/// for numbers around `1e-15`) - pick an epsilon appropriate to the scale of
+/// the values being compared, or fall back to `is_close_default`/
+/// `default_epsilon` for a reasonable one-size-fits-most choice.
+// `self` by value, not `&self`, to match the rest of this file (`Sqrt`,
+// `Sin`, `Cos`, ...) - these are cheap `Copy` scalars, so there's no reason
+// to take a reference.
+#[allow(clippy::wrong_self_convention)]
+pub trait Approx: Sized {
+    /// A reasonable default tolerance for this type, used by
+    /// `is_close_default`
+    fn default_epsilon() -> Self;
+
+    /// Returns whether `self` and `other` differ by at most `epsilon`
+    fn is_close(self, other: Self, epsilon: Self) -> bool;
+
+    /// Like `is_close`, but using `Self::default_epsilon()` as the
+    /// tolerance
+    fn is_close_default(self, other: Self) -> bool {
+        self.is_close(other, Self::default_epsilon())
+    }
+}
+
+impl Approx for f32 {
+    fn default_epsilon() -> Self {
+        1e-6
+    }
+
+    fn is_close(self, other: Self, epsilon: Self) -> bool {
+        (self - other).abs() <= epsilon
+    }
+}
+
+impl Approx for f64 {
+    fn default_epsilon() -> Self {
+        1e-10
+    }
+
+    fn is_close(self, other: Self, epsilon: Self) -> bool {
+        (self - other).abs() <= epsilon
+    }
+}

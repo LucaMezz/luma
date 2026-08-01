@@ -10,7 +10,7 @@ use core::ops::{Add, Index, IndexMut, Mul, Sub};
 
 use crate::array::zip_map;
 use crate::field::Field;
-use crate::real::{Cos, Sin};
+use crate::real::{Approx, Cos, Sin};
 use crate::vector::Vector;
 
 /// An NxM matrix (N rows, M columns) over a `Field` `F`. Size must be known
@@ -109,6 +109,23 @@ where
     /// Checks if all off-diagonal entries are zero
     pub fn is_diagonal(&self) -> bool {
         (0..N).all(|i| (0..M).all(|j| i == j || self.data[i][j] == F::zero()))
+    }
+
+    /// Returns whether `self` and `other` are entrywise within `epsilon` of
+    /// each other. See `Approx` for choosing an epsilon.
+    pub fn is_close(&self, other: Self, epsilon: F) -> bool
+    where
+        F: Approx,
+    {
+        (0..N).all(|i| (0..M).all(|j| self.data[i][j].is_close(other.data[i][j], epsilon)))
+    }
+
+    /// Like `is_close`, but using `F`'s default epsilon
+    pub fn is_close_default(&self, other: Self) -> bool
+    where
+        F: Approx,
+    {
+        self.is_close(other, F::default_epsilon())
     }
 }
 
@@ -475,12 +492,10 @@ mod test {
         assert_eq!(Matrix::<f64, 2, 2>::rotation(0.0), Matrix::id());
 
         // A 90-degree rotation should send X to Y.
-        let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
         let r = Mat2::<f64>::rotation(FRAC_PI_2);
         let m = r * Matrix::from(Vector::new([1.0, 0.0]));
 
-        assert!(close(m[0][0], 0.0));
-        assert!(close(m[1][0], 1.0));
+        assert!(m.is_close_default(Matrix::from(Vector::new([0.0, 1.0]))));
     }
 
     #[test]
@@ -497,10 +512,6 @@ mod test {
         // 90-degree rotations have exact expected results, which pins down
         // both the axis and the sign/direction of the rotation - properties
         // that an orthogonality check alone can't catch.
-        let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
-        let close_vec = |a: Vector<f64, 3>, b: Vector<f64, 3>| {
-            close(a[0], b[0]) && close(a[1], b[1]) && close(a[2], b[2])
-        };
         let rotate = |axis: Axis, v: Vector<f64, 3>| {
             let r = Matrix::<f64, 3, 3>::rotation(axis, FRAC_PI_2);
             let m = r * Matrix::from(v);
@@ -511,27 +522,31 @@ mod test {
         let y = Vector::new([0.0, 1.0, 0.0]);
         let z = Vector::new([0.0, 0.0, 1.0]);
 
-        assert!(close_vec(rotate(Axis::Z, x), y));
-        assert!(close_vec(rotate(Axis::X, y), z));
-        assert!(close_vec(rotate(Axis::Y, z), x));
+        assert!(rotate(Axis::Z, x).is_close_default(y));
+        assert!(rotate(Axis::X, y).is_close_default(z));
+        assert!(rotate(Axis::Y, z).is_close_default(x));
     }
 
     #[test]
     fn test_rotation_is_orthogonal() {
         // Property check: a rotation matrix's transpose should be its
         // inverse for any angle, not just the "nice" ones above.
-        let close = |a: f64, b: f64| (a - b).abs() < 1e-10;
-
         for axis in [Axis::X, Axis::Y, Axis::Z] {
             let r = Matrix::<f64, 3, 3>::rotation(axis, 0.73);
             let product = r * r.transpose();
 
-            for i in 0..3 {
-                for j in 0..3 {
-                    let expected = if i == j { 1.0 } else { 0.0 };
-                    assert!(close(product[i][j], expected));
-                }
-            }
+            assert!(product.is_close_default(Matrix::id()));
         }
+    }
+
+    #[test]
+    fn test_is_close() {
+        let a = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+        let b = Matrix::new([[1.0 + 1e-11, 2.0], [3.0, 4.0 - 1e-11]]);
+        let c = Matrix::new([[1.1, 2.0], [3.0, 4.0]]);
+
+        assert!(a.is_close_default(b));
+        assert!(!a.is_close_default(c));
+        assert!(a.is_close(c, 0.2));
     }
 }

@@ -12,7 +12,7 @@ use crate::array::zip_map;
 use crate::field::Field;
 use crate::matrix::Matrix;
 use crate::order::MinMax;
-use crate::real::{Acos, Round, Sqrt};
+use crate::real::{Acos, Approx, Round, Sqrt};
 
 /// A vector with `N` components over a `Field` `F`, used for coordinates,
 /// directions, and offsets.
@@ -93,6 +93,23 @@ where
         F: Sqrt,
     {
         (*self - other).length()
+    }
+
+    /// Returns whether `self` and `other` are componentwise within
+    /// `epsilon` of each other. See `Approx` for choosing an epsilon.
+    pub fn is_close(&self, other: Self, epsilon: F) -> bool
+    where
+        F: Approx,
+    {
+        (0..N).all(|i| self.data[i].is_close(other.data[i], epsilon))
+    }
+
+    /// Like `is_close`, but using `F`'s default epsilon
+    pub fn is_close_default(&self, other: Self) -> bool
+    where
+        F: Approx,
+    {
+        self.is_close(other, F::default_epsilon())
     }
 
     /// Linearly interpolates between two vectors: `t = 0` gives `self`,
@@ -296,6 +313,7 @@ where
 #[cfg(test)]
 mod test {
     use crate::matrix::Matrix;
+    use crate::real::Approx;
     use crate::vector::Vector;
 
     #[test]
@@ -399,11 +417,19 @@ mod test {
 
         // Exact float equality is unreliable after arithmetic, so check
         // within a tolerance rather than with assert_eq!.
-        let close = |a: f64, b: f64| (a - b) < 1e-10 && (b - a) < 1e-10;
+        assert!(u.is_close_default(Vector::new([0.6, 0.8])));
+        assert!(u.length().is_close_default(1.0));
+    }
 
-        assert!(close(u[0], 0.6));
-        assert!(close(u[1], 0.8));
-        assert!(close(u.length(), 1.0));
+    #[test]
+    fn test_is_close() {
+        let a = Vector::new([1.0, 2.0]);
+        let b = Vector::new([1.0 + 1e-11, 2.0 - 1e-11]);
+        let c = Vector::new([1.1, 2.0]);
+
+        assert!(a.is_close_default(b));
+        assert!(!a.is_close_default(c));
+        assert!(a.is_close(c, 0.2));
     }
 
     #[test]
