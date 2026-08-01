@@ -7,9 +7,11 @@
 //! `normalize`, unlike composing rotation matrices which can drift away
 //! from orthogonality and needs a full re-orthonormalization to fix.
 
+use core::array;
 use core::ops::Mul;
 
 use crate::field::Field;
+use crate::matrix::Matrix;
 use crate::real::Sqrt;
 
 /// A quaternion `w + xi + yj + zk` over a `Field` `F`
@@ -32,6 +34,18 @@ where
     /// `x`, `y`, `z`
     pub fn new(w: F, x: F, y: F, z: F) -> Self {
         Self { w, x, y, z }
+    }
+
+    /// Returns the identity quaternion, representing no rotation - the
+    /// multiplicative identity for the Hamilton product (`id() * q == q ==
+    /// q * id()`)
+    pub fn id() -> Self {
+        Self {
+            w: F::one(),
+            x: F::zero(),
+            y: F::zero(),
+            z: F::zero(),
+        }
     }
 
     /// The squared norm `w^2 + x^2 + y^2 + z^2`, cheaper than the norm
@@ -77,17 +91,81 @@ where
     }
 }
 
+/// Converts a quaternion into the 3x3 rotation matrix it represents.
+///
+/// Uses the general formula (scaling by `2 / norm_squared` rather than
+/// assuming `norm_squared == 1`), so this gives the correct rotation for any
+/// nonzero quaternion, not just unit ones - there's no need to `normalize`
+/// first.
+impl<F> From<Quaternion<F>> for Matrix<F, 3, 3>
+where
+    F: Field,
+{
+    fn from(q: Quaternion<F>) -> Self {
+        let Quaternion { w, x, y, z } = q;
+        let two = F::one() + F::one();
+        let s = two / q.norm_squared();
+
+        Matrix::new([
+            [
+                F::one() - s * (y * y + z * z),
+                s * (x * y - w * z),
+                s * (x * z + w * y),
+            ],
+            [
+                s * (x * y + w * z),
+                F::one() - s * (x * x + z * z),
+                s * (y * z - w * x),
+            ],
+            [
+                s * (x * z - w * y),
+                s * (y * z + w * x),
+                F::one() - s * (x * x + y * y),
+            ],
+        ])
+    }
+}
+
+/// Converts a quaternion into the 4x4 rotation matrix it represents, for
+/// composing with other 4x4 transforms (see `Matrix::translation`). The
+/// rotation occupies the top-left 3x3 block; the rest matches the identity.
+impl<F> From<Quaternion<F>> for Matrix<F, 4, 4>
+where
+    F: Field,
+{
+    fn from(q: Quaternion<F>) -> Self {
+        let r: Matrix<F, 3, 3> = q.into();
+        Matrix::new(array::from_fn(|i| {
+            array::from_fn(|j| {
+                if i < 3 && j < 3 {
+                    r[i][j]
+                } else if i == j {
+                    F::one()
+                } else {
+                    F::zero()
+                }
+            })
+        }))
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use crate::matrix::Matrix;
     use crate::quaternion::Quaternion;
 
     #[test]
     fn test_mul_identity() {
-        let identity = Quaternion::new(1, 0, 0, 0);
+        let identity = Quaternion::id();
         let q = Quaternion::new(1, 2, 3, 4);
 
         assert_eq!(identity * q, q);
         assert_eq!(q * identity, q);
+    }
+
+    #[test]
+    fn test_id() {
+        assert_eq!(Quaternion::id(), Quaternion::new(1, 0, 0, 0));
     }
 
     #[test]
@@ -112,5 +190,51 @@ mod test {
         let q = Quaternion::new(0.0, 3.0, 4.0, 0.0);
 
         assert_eq!(q.normalize(), Quaternion::new(0.0, 0.6, 0.8, 0.0));
+    }
+
+    #[test]
+    fn test_into_mat3_identity() {
+        let identity = Quaternion::id();
+
+        assert_eq!(Matrix::from(identity), Matrix::<i32, 3, 3>::id());
+    }
+
+    #[test]
+    fn test_into_mat3_spot_check() {
+        // A 180-degree rotation is a "nice" angle: cos(90 deg) = 0 and
+        // sin(90 deg) = 1 exactly (it's a unit quaternion's *half*-angle
+        // that appears in w/x/y/z), so this can use exact integers and
+        // assert_eq! rather than a float tolerance. 180 degrees around Z
+        // should send X to -X and Y to -Y, leaving Z fixed.
+        let q = Quaternion::new(0, 0, 0, 1);
+
+        assert_eq!(
+            Matrix::from(q),
+            Matrix::new([[-1, 0, 0], [0, -1, 0], [0, 0, 1]])
+        );
+    }
+
+    #[test]
+    fn test_into_mat3_scale_invariant() {
+        // A non-unit quaternion representing the same rotation as the spot
+        // check above should convert to the same matrix - no `normalize`
+        // needed first. `s = 2 / norm_squared` here is `2 / 4 = 0.5`, exact
+        // in IEEE 754, so this can still use assert_eq!.
+        let q = Quaternion::new(0.0, 0.0, 0.0, 2.0);
+
+        assert_eq!(
+            Matrix::from(q),
+            Matrix::new([[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]])
+        );
+    }
+
+    #[test]
+    fn test_into_mat4_embeds_rotation() {
+        let q = Quaternion::new(0, 0, 0, 1);
+
+        assert_eq!(
+            Matrix::from(q),
+            Matrix::new([[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1],])
+        );
     }
 }
