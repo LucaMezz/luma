@@ -380,6 +380,21 @@ where
     }
 }
 
+/// Matrix-vector multiplication: treats `rhs` as a column vector, so an NxM
+/// matrix times an M-vector gives an N-vector. Wraps the `Matrix<F, M, 1>`
+/// round trip (`Vector`'s `From`/`Into` column-matrix impls) so callers can
+/// write `matrix * vector` directly instead of converting on both ends.
+impl<F, const N: usize, const M: usize> Mul<Vector<F, M>> for Matrix<F, N, M>
+where
+    F: Field,
+{
+    type Output = Vector<F, N>;
+
+    fn mul(self, rhs: Vector<F, M>) -> Self::Output {
+        (self * Matrix::from(rhs)).into()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use core::f64::consts::FRAC_PI_2;
@@ -486,6 +501,16 @@ mod test {
         let c = a * b;
 
         assert_eq!(c, Matrix::new([[1, 2, 3, 6], [4, 5, 6, 15]]));
+    }
+
+    #[test]
+    fn test_mul_vector() {
+        // Same non-square reasoning as test_mul_matrix: N != M catches a
+        // rows/columns mixup that a square matrix would hide.
+        let a = Matrix::new([[1, 2, 3], [4, 5, 6]]);
+        let v = Vector::new([1, 0, 1]);
+
+        assert_eq!(a * v, Vector::new([4, 10]));
     }
 
     #[test]
